@@ -1,0 +1,9 @@
+### Test M-Pesa STK Push
+POST http://localhost:5000/api/payments/stk-push
+Content-Type: application/json
+
+{
+    "phone": "254712345678",
+    "amount": 1,
+    "bookingId": "test_nairobi_001"
+}
