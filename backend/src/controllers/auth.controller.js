@@ -1,87 +1,51 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// Helper function to create and send Token
-const sendTokenResponse = (user, statusCode, res) => {
-  const token = jwt.sign({ id: user._id }, process.env.JWT_SECRET, {
-    expiresIn: process.env.JWT_EXPIRE,
-  });
+// ✅ FIXED: Using exports.name ensures the function is visible to other files
+exports.register = async (req, res) => {
+  try {
+    const { name, email, password, phone } = req.body;
 
-  res.status(statusCode).json({
-    success: true,
-    token,
-    user: {
-      id: user._id,
+    const userExists = await User.findOne({ email });
+    if (userExists) {
+      return res.status(400).json({ message: 'User already exists' });
+    }
+
+    const user = await User.create({ name, email, password, phone });
+
+    res.status(201).json({
+      _id: user._id,
       name: user.name,
       email: user.email,
-      role: user.role,
-      phone: user.phone
-    }
-  });
-};
-
-// @desc    Register user
-// @route   POST /api/auth/register
-exports.register = async (req, res, next) => {
-  try {
-    const { name, email, password, phone, role } = req.body;
-
-    // Create user
-    const user = await User.create({
-      name,
-      email,
-      password,
-      phone,
-      role,
+      phone: user.phone,
+      token: generateToken(user._id),
     });
-
-    sendTokenResponse(user, 201, res);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Login user
-// @route   POST /api/auth/login
-exports.login = async (req, res, next) => {
+exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
+    const user = await User.findOne({ email });
 
-    // Validate email & password
-    if (!email || !password) {
-      return res.status(400).json({ message: 'Please provide an email and password' });
+    if (user && (await user.matchPassword(password))) {
+      res.json({
+        _id: user._id,
+        name: user.name,
+        email: user.email,
+        phone: user.phone, // Crucial for M-Pesa STK Push
+        token: generateToken(user._id),
+      });
+    } else {
+      res.status(401).json({ message: 'Invalid email or password' });
     }
-
-    // Check for user
-    const user = await User.findOne({ email }).select('+password');
-
-    if (!user) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    // Check if password matches
-    const isMatch = await user.matchPassword(password);
-
-    if (!isMatch) {
-      return res.status(401).json({ message: 'Invalid credentials' });
-    }
-
-    sendTokenResponse(user, 200, res);
-  } catch (err) {
-    next(err);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
   }
 };
 
-// @desc    Get current logged in user
-// @route   GET /api/auth/me
-exports.getMe = async (req, res, next) => {
-  try {
-    // req.user is already attached by the 'protect' middleware
-    res.status(200).json({
-      success: true,
-      data: req.user,
-    });
-  } catch (err) {
-    next(err);
-  }
+const generateToken = (id) => {
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };

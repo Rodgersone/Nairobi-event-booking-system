@@ -1,17 +1,17 @@
-const express = require('express');
-const router = express.Router();
-const { createBooking, getMyBookings } = require('../controllers/booking.controller');
-const { protect } = require('../middleware/auth');
+const Booking = require('../models/Booking');
 
-// All booking routes require the user to be logged in
-router.use(protect);
-
-// @route   POST /api/bookings
-// @desc    Book an event and trigger M-Pesa push
-router.post('/', createBooking);
-
+// @desc    Get logged in user bookings
 // @route   GET /api/bookings/my-bookings
-// @desc    View current user's tickets
-router.get('/my-bookings', getMyBookings);
+exports.getMyBookings = async (req, res) => {
+  try {
+    // 1. Find bookings where 'user' field matches the ID from the token
+    // 2. .populate('event') pulls the full event details (title, price, location)
+    const bookings = await Booking.find({ user: req.user._id }).populate('event');
 
-module.exports = router;
+    // 3. Always return an array to the frontend to avoid 'map is not a function' errors
+    res.status(200).json(bookings || []);
+  } catch (error) {
+    console.error("Booking Controller Error:", error.message);
+    res.status(500).json({ message: "Server Error: Could not fetch bookings" });
+  }
+};

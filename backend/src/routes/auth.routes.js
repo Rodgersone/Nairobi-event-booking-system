@@ -1,15 +1,11 @@
 const express = require('express');
 const router = express.Router();
-const { register, login, getMe } = require('../controllers/auth.controller');
-const { protect } = require('../middleware/auth');
-const { authLimiter } = require('../middleware/security');
 
-// Public Routes
-// Applied authLimiter to prevent brute-force attacks on login/register
-router.post('/register', authLimiter, register);
-router.post('/login', authLimiter, login);
+// ✅ FIXED: Destructuring {} is required to catch the functions from the controller
+const { register, login } = require('../controllers/auth.controller'); 
 
-// Private Routes (Require Token)
-router.get('/me', protect, getMe);
+// If 'register' or 'login' were undefined, line 8 or 9 would crash the app
+router.post('/register', register);
+router.post('/login', login); 
 
 module.exports = router;

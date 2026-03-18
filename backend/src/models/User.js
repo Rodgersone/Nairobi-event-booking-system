@@ -15,28 +15,26 @@ const userSchema = new mongoose.Schema({
   phone: {
     type: String,
     required: [true, 'Please add a Kenyan phone number (254...)'],
-    unique: true
+    unique: true,
+    // Strictly enforces 12 digits starting with 254 for M-Pesa
+    match: [/^(254)\d{9}$/, 'Please provide a valid Kenyan number starting with 254']
   },
   password: {
     type: String,
     required: [true, 'Please add a password'],
     minlength: 6,
-    select: false // This hides the password by default when fetching user data
+    select: false // Hides password by default for security
   },
   role: {
     type: String,
     enum: ['user', 'organizer', 'admin'],
     default: 'user'
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now
   }
 }, {
   timestamps: true
 });
 
-// Encrypt password using bcrypt before saving
+// Encrypt password using bcrypt
 userSchema.pre('save', async function(next) {
   if (!this.isModified('password')) {
     next();
@@ -45,8 +43,10 @@ userSchema.pre('save', async function(next) {
   this.password = await bcrypt.hash(this.password, salt);
 });
 
-// Method to match user entered password to hashed password in database
+// Compare user password
 userSchema.methods.matchPassword = async function(enteredPassword) {
+  // Check if this.password exists to avoid "Illegal arguments"
+  if (!this.password) return false; 
   return await bcrypt.compare(enteredPassword, this.password);
 };
 
