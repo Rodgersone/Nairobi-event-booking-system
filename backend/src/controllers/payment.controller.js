@@ -16,7 +16,7 @@ const getAccessToken = async () => {
     return response.data.access_token;
 };
 
-// --- STEP 1: INITIATE STK PUSH ---
+// --- INITIATE STK PUSH ---
 exports.stkPush = async (req, res) => {
     try {
         const { amount, phoneNumber, eventId, ticketsCount } = req.body;
@@ -27,49 +27,51 @@ exports.stkPush = async (req, res) => {
         const password = Buffer.from(shortcode + passkey + timestamp).toString('base64');
         const accessToken = await getAccessToken();
 
+        console.log(`🚀 Requesting STK Push: KES ${amount} to ${phone}`);
+
         const response = await axios.post('https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest', {
             BusinessShortCode: shortcode,
             Password: password,
             Timestamp: timestamp,
             TransactionType: "CustomerPayBillOnline",
-            Amount: Math.round(Number(amount)),
+            Amount: Math.round(Number(amount)), // Safaricom requires integers
             PartyA: phone,
             PartyB: shortcode,
             PhoneNumber: phone,
             CallBackURL: (process.env.MPESA_CALLBACK_URL || "").trim(),
             AccountReference: "NairobiEvents",
-            TransactionDesc: "Ticket Purchase"
+            TransactionDesc: "Ticket Test"
         }, { headers: { Authorization: `Bearer ${accessToken}` } });
 
-        // LOGIC FIX: Don't let a DB error trigger a 500 status to the user
         if (response.data.ResponseCode === "0") {
             try {
+                // We use the 'amount' sent from the frontend for totalAmount
                 await Booking.create({
                     user: req.user.id,
                     event: eventId,
                     ticketsCount: ticketsCount || 1,
-                    totalAmount: amount,
+                    totalAmount: amount, 
                     mpesaCheckoutID: response.data.CheckoutRequestID,
                     paymentStatus: 'pending'
                 });
-                console.log(`📡 Booking Logged: ${response.data.CheckoutRequestID}`);
+                console.log(`📡 Booking Saved: ${response.data.CheckoutRequestID}`);
             } catch (dbError) {
-                console.error("⚠️ DB Error (Likely Duplicate ID):", dbError.message);
-                // We do NOT return an error here because the STK prompt is already on their phone
+                console.error("⚠️ DB Save Error (Duplicate ID):", dbError.message);
+                // Catching this prevents the 500 error on the frontend
             }
         }
 
         return res.status(200).json(response.data);
     } catch (error) {
-        console.error("❌ STK Initiation Error:", error.response?.data || error.message);
+        console.error("❌ STK Push Failed:", error.response?.data || error.message);
         return res.status(500).json({ 
             message: "STK Push Failed", 
-            details: error.response?.data?.CustomerMessage || "Server Error" 
+            details: error.response?.data?.CustomerMessage || "Internal Server Error" 
         });
     }
 };
 
-// --- STEP 2: HANDLE CALLBACK ---
+// --- HANDLE CALLBACK ---
 exports.handleCallback = async (req, res) => {
     try {
         const { Body } = req.body;
@@ -84,12 +86,12 @@ exports.handleCallback = async (req, res) => {
                 { mpesaCheckoutID: checkoutID },
                 { paymentStatus: 'paid', mpesaReceiptNumber: receipt }
             );
-            console.log(`✅ Success: Payment for ${checkoutID} confirmed.`);
+            console.log(`✅ Payment confirmed for ${checkoutID}`);
         } else {
             await Booking.findOneAndUpdate({ mpesaCheckoutID: checkoutID }, { paymentStatus: 'failed' });
-            console.log(`❌ Failed: Payment for ${checkoutID} cancelled.`);
+            console.log(`❌ Payment failed for ${checkoutID}`);
         }
-        res.status(200).send("OK");
+        res.status(200).send("Callback Processed");
     } catch (error) {
         res.status(500).send("Error");
     }

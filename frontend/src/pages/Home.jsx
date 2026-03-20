@@ -8,8 +8,9 @@ const Home = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Retrieve user from localStorage
-  const user = JSON.parse(localStorage.getItem('user'));
+  // SAFE RETRIEVAL: Check if user exists and isn't "undefined" before parsing
+  const storedUser = localStorage.getItem('user');
+  const user = (storedUser && storedUser !== "undefined") ? JSON.parse(storedUser) : null;
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -31,17 +32,17 @@ const Home = () => {
     event.location.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  if (loading) return <div className="p-10 text-center">Loading events...</div>;
-  if (error) return <div className="p-10 text-center text-red-500">{error}</div>;
+  if (loading) return <div className="p-10 text-center font-medium">Searching for events in Nairobi...</div>;
+  if (error) return <div className="p-10 text-center text-red-500 bg-red-50 rounded-xl m-10 border border-red-100">{error}</div>;
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-10">
       <header className="mb-10">
-        <h1 className="text-4xl font-black text-gray-900">
-          {user ? `Karibu, ${user.name}!` : "Find your next experience"}
+        <h1 className="text-4xl font-black text-gray-900 tracking-tight">
+          {user ? `Karibu, ${user.name || 'Juma'}!` : "Find your next experience"}
         </h1>
         
-        <div className="mt-6 flex max-w-md bg-white border rounded-xl overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-green-500">
+        <div className="mt-6 flex max-w-md bg-white border rounded-xl overflow-hidden shadow-sm focus-within:ring-2 focus-within:ring-green-500 transition-all">
           <span className="px-4 flex items-center text-gray-400">🔍</span>
           <input 
             type="text" 
@@ -59,8 +60,14 @@ const Home = () => {
             <EventCard key={event._id} event={event} />
           ))
         ) : (
-          <div className="col-span-full py-20 text-center bg-gray-50 rounded-2xl">
-            <p className="text-gray-400">No events found in Nairobi matching "{searchTerm}"</p>
+          <div className="col-span-full py-20 text-center bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+            <p className="text-gray-400 font-medium">No events found matching "{searchTerm}"</p>
+            <button 
+              onClick={() => setSearchTerm("")}
+              className="mt-2 text-green-600 font-bold hover:underline"
+            >
+              Clear search
+            </button>
           </div>
         )}
       </div>

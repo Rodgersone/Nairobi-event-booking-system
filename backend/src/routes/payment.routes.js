@@ -3,10 +3,16 @@ const router = express.Router();
 const { stkPush, handleCallback } = require('../controllers/payment.controller');
 const { protect } = require('../middleware/auth.middleware');
 
-// Route for initiating the payment (Requires Login)
+/**
+ * @desc    Initiate M-Pesa STK Push
+ * @access  Private (Requires Login)
+ */
 router.post('/stk-push', protect, stkPush);
 
-// Route for M-Pesa Callback (Public)
+/**
+ * @desc    M-Pesa Callback URL (Safaricom calls this)
+ * @access  Public (No middleware)
+ */
 router.post('/callback', handleCallback);
 
 module.exports = router;

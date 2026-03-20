@@ -13,14 +13,12 @@ const Login = () => {
     try {
       const res = await API.post('/auth/login', formData);
       
-      // SAVE THE TOKEN
-      localStorage.setItem('token', res.data.token);
-      
-      // FIX: Save the ENTIRE user object (including the phone number)
-      // Previously, you were only saving { name: res.data.name }
-      localStorage.setItem('user', JSON.stringify(res.data.user)); 
-      
-      navigate('/'); 
+      // FULL UPDATE: Saving token and nested user object safely
+      if (res.data.token && res.data.user) {
+        localStorage.setItem('token', res.data.token);
+        localStorage.setItem('user', JSON.stringify(res.data.user)); 
+        navigate('/'); 
+      }
     } catch (err) {
       alert(err.response?.data?.message || "Login failed.");
     } finally {
@@ -40,7 +38,7 @@ const Login = () => {
             <input 
               type="email" 
               className="w-full px-5 py-4 rounded-2xl border border-gray-200 focus:ring-4 focus:ring-green-500/10 focus:border-green-500 outline-none transition-all bg-gray-50/50"
-              placeholder="juma@nairobi.com"
+              placeholder="kevin@kevo.com"
               required 
               onChange={(e) => setFormData({...formData, email: e.target.value})} 
             />
