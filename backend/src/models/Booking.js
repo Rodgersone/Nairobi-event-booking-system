@@ -27,17 +27,17 @@ const bookingSchema = new mongoose.Schema({
     default: 'pending'
   },
   mpesaCheckoutID: {
-    type: String, // From Daraja STK Push response
+    type: String, 
     unique: true,
-    sparse: true // Allows multiple 'null' values if payment hasn't started
+    sparse: true 
   },
   mpesaReceiptNumber: {
-    type: String, // From Daraja Callback (e.g., RHK012345)
+    type: String, 
     unique: true,
     sparse: true
   },
   qrCodeUrl: {
-    type: String // URL to the generated PDF/Image ticket
+    type: String 
   },
   bookedAt: {
     type: Date,
@@ -47,10 +47,9 @@ const bookingSchema = new mongoose.Schema({
   timestamps: true
 });
 
-// Prevent a user from booking more tickets than are available (Basic check)
 bookingSchema.pre('save', async function(next) {
   const event = await mongoose.model('Event').findById(this.event);
-  if (event.availableTickets < this.ticketsCount) {
+  if (event && event.availableTickets < this.ticketsCount) {
     throw new Error('Not enough tickets available for this event');
   }
   next();

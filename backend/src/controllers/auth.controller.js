@@ -1,7 +1,7 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
-// ✅ FIXED: Using exports.name ensures the function is visible to other files
+//  FIXED: Using exports.name ensures the function is visible to other files
 exports.register = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
