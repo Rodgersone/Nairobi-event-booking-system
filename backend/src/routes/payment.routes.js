@@ -1,10 +1,15 @@
 const express = require('express');
 const router = express.Router();
-// ✅ FIXED: Destructuring ensures we get the functions, not an undefined object
 const { stkPush } = require('../controllers/payment.controller');
-const { protect } = require('../middleware/auth.middleware'); 
+const { protect } = require('../middleware/auth.middleware');
 
-// ✅ FIXED: Adding the 'protect' middleware correctly
+// Route for initiating the payment
 router.post('/stk-push', protect, stkPush);
 
-module.exports = router; // CRITICAL: Exporting the router for server.js
+// Route for M-Pesa to send the result (MUST be public, no 'protect')
+router.post('/callback', (req, res) => {
+    console.log("📩 M-Pesa Callback Received:", JSON.stringify(req.body, null, 2));
+    res.status(200).send("Callback Received");
+});
+
+module.exports = router;

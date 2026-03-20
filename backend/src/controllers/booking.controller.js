@@ -4,9 +4,8 @@ const Booking = require('../models/Booking');
 // @route   GET /api/bookings/my-bookings
 exports.getUserBookings = async (req, res) => {
   try {
-    // Finds all bookings belonging to the logged-in Juma
     const bookings = await Booking.find({ user: req.user.id })
-      .populate('event', 'title price date') // Pulls details from the Event model
+      .populate('event', 'title price date')
       .sort({ createdAt: -1 });
 
     res.json(bookings);

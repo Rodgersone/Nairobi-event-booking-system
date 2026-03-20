@@ -2,7 +2,9 @@ const axios = require('axios');
 const dotenv = require('dotenv');
 dotenv.config();
 
-// Helper to generate Safaricom TimeStamp
+/**
+ * Generates a strictly formatted timestamp: YYYYMMDDHHMMSS
+ */
 const getTimeStamp = () => {
     const date = new Date();
     return (
@@ -15,54 +17,94 @@ const getTimeStamp = () => {
     );
 };
 
-// @desc    Initiate M-Pesa STK Push
-// @route   POST /api/payments/stk-push
-// @access  Private
+/**
+ * Gets the OAuth Access Token from Safaricom
+ */
+const getAccessToken = async () => {
+    const key = (process.env.MPESA_CONSUMER_KEY || "").trim();
+    const secret = (process.env.MPESA_CONSUMER_SECRET || "").trim();
+
+    if (!key || !secret) {
+        throw new Error("Missing M-Pesa Consumer Key or Secret in .env");
+    }
+
+    const auth = Buffer.from(`${key}:${secret}`).toString('base64');
+
+    try {
+        console.log("🔍 Fetching M-Pesa Access Token...");
+        const response = await axios.get(
+            'https://sandbox.safaricom.co.ke/oauth/v1/generate?grant_type=client_credentials',
+            { headers: { Authorization: `Basic ${auth}` } }
+        );
+        console.log("✅ Access Token Obtained successfully");
+        return response.data.access_token;
+    } catch (error) {
+        console.error("❌ Auth Error:", error.response?.data || error.message);
+        throw new Error("M-Pesa Authentication Failed. Check keys in .env");
+    }
+};
+
+/**
+ * Initiates the STK Push (Lipa Na M-Pesa Online)
+ */
 exports.stkPush = async (req, res) => {
     try {
-        const { amount, phoneNumber } = req.body;
+        let { amount, phoneNumber } = req.body;
 
-        // 1. Format Phone Number (Ensures 254...)
-        const phone = phoneNumber.startsWith('0') 
-            ? `254${phoneNumber.substring(1)}` 
-            : phoneNumber;
-
-        const timestamp = getTimeStamp();
-        const shortcode = process.env.MPESA_PAYBILL || '174379';
-        const passkey = process.env.MPESA_PASSKEY;
+        // 1. Advanced Phone Formatting (Ensures 2547... format)
+        // Removes any non-numeric characters like '+'
+        let cleanedPhone = phoneNumber.replace(/\D/g, '');
         
-        // Generate Password
+        if (cleanedPhone.startsWith('0')) {
+            cleanedPhone = `254${cleanedPhone.substring(1)}`;
+        } else if (cleanedPhone.startsWith('7') || cleanedPhone.startsWith('1')) {
+            cleanedPhone = `254${cleanedPhone}`;
+        } else if (!cleanedPhone.startsWith('254')) {
+            return res.status(400).json({ message: "Invalid Kenyan phone number format." });
+        }
+
+        if (!amount || !cleanedPhone) {
+            return res.status(400).json({ message: "Amount and Phone Number are required." });
+        }
+
+        // 2. Credentials from .env
+        const timestamp = getTimeStamp();
+        const shortcode = (process.env.MPESA_SHORTCODE || "").trim();
+        const passkey = (process.env.MPESA_PASSKEY || "").trim();
+        const callbackUrl = (process.env.MPESA_CALLBACK_URL || "").trim();
+
         const password = Buffer.from(shortcode + passkey + timestamp).toString('base64');
 
-        // Note: You would normally get the access_token from a middleware/service
-        const accessToken = req.token; 
+        // 3. Authorization
+        const accessToken = await getAccessToken();
 
-        const stkData = {
-            BusinessShortCode: shortcode,
-            Password: password,
-            Timestamp: timestamp,
-            TransactionType: "CustomerPayBillOnline",
-            Amount: amount, // KES
-            PartyA: phone,
-            PartyB: shortcode,
-            PhoneNumber: phone,
-            CallBackURL: "https://yourdomain.com/api/payments/callback",
-            AccountReference: "NairobiEvents",
-            TransactionDesc: "Event Booking Payment"
-        };
+        // 4. M-Pesa Request
+        console.log(`🚀 Sending STK Push: KES ${amount} to ${cleanedPhone}`);
+        
+        const response = await axios.post(
+            'https://sandbox.safaricom.co.ke/mpesa/stkpush/v1/processrequest',
+            {
+                BusinessShortCode: shortcode,
+                Password: password,
+                Timestamp: timestamp,
+                TransactionType: "CustomerPayBillOnline",
+                Amount: Math.round(Number(amount)),
+                PartyA: cleanedPhone,
+                PartyB: shortcode,
+                PhoneNumber: cleanedPhone,
+                CallBackURL: callbackUrl,
+                AccountReference: "NairobiEvents",
+                TransactionDesc: "Ticket Payment"
+            },
+            { headers: { Authorization: `Bearer ${accessToken}` } }
+        );
 
-        // For now, since we are debugging connectivity, we return success manually
-        // Once your Daraja credentials are in .env, use axios.post to Safaricom
-        console.log("✅ STK Push Payload Ready:", stkData);
-
-        res.status(200).json({
-            ResponseCode: "0",
-            CustomerMessage: "Success. Request accepted for processing",
-            CheckoutRequestID: "ws_CO_123456789" // Mock ID for testing
-        });
+        console.log("✅ Safaricom Success:", response.data.CustomerMessage);
+        res.status(200).json(response.data);
 
     } catch (error) {
-        console.error("❌ M-Pesa Error:", error.response ? error.response.data : error.message);
-        res.status(500).json({ message: "STK Push Failed", error: error.message });
+        const errorDetail = error.response?.data || error.message;
+        console.error("❌ STK Push Failed:", errorDetail);
+        res.status(500).json({ message: "STK Push Failed", details: errorDetail });
     }
 };
