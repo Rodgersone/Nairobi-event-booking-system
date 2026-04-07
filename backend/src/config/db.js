@@ -2,14 +2,17 @@ const mongoose = require('mongoose');
 
 const connectDB = async () => {
   try {
-    // We removed the unsupported options here
-    const conn = await mongoose.connect(process.env.MONGO_URI);
+    if (!process.env.MONGO_URI) {
+      throw new Error('MONGO_URI is not defined in .env');
+    }
 
-    console.log(` Nairobi DB Connected: ${conn.connection.host}`);
-  } catch (error) {
-    console.error(` Database Connection Error: ${error.message}`);
-    // Exit process with failure
-    process.exit(1);
+    // Mongoose v6+ auto-handles parser & topology
+    await mongoose.connect(process.env.MONGO_URI);
+
+    console.log('✅ MongoDB connected successfully');
+  } catch (err) {
+    console.error('❌ Database Connection Error:', err.message);
+    process.exit(1); // Exit process if DB connection fails
   }
 };
 

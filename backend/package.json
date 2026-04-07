@@ -6,10 +6,11 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "nodemon src/server.js",
+    "start:prod": "NODE_ENV=production node src/server.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["events", "booking", "nairobi", "backend"],
+  "author": "Rodgers Otieno",
   "license": "ISC",
   "dependencies": {
     "axios": "^1.13.6",
@@ -22,6 +23,7 @@
     "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.3.0",
+    "morgan": "^1.10.1",
     "multer": "^2.1.1",
     "nodemailer": "^8.0.2",
     "pdfkit": "^0.17.2",

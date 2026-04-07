@@ -1,9 +1,23 @@
 const User = require('../models/User');
 const jwt = require('jsonwebtoken');
 
+const generateToken = (id) => {
+  if (!process.env.JWT_SECRET) {
+    throw new Error('JWT_SECRET is not set in .env');
+  }
+  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
+};
+
+// @desc   Register a new user
+// @route  POST /api/auth/register
+// @access Public
 exports.register = async (req, res) => {
   try {
     const { name, email, password, phone } = req.body;
+
+    if (!name || !email || !password || !phone) {
+      return res.status(400).json({ message: 'All fields are required' });
+    }
 
     const userExists = await User.findOne({ email });
     if (userExists) {
@@ -19,18 +33,25 @@ exports.register = async (req, res) => {
         name: user.name,
         email: user.email,
         phone: user.phone,
-      }
+      },
     });
   } catch (error) {
+    console.error('Register Error:', error.message);
     res.status(500).json({ message: error.message });
   }
 };
 
+// @desc   Login user
+// @route  POST /api/auth/login
+// @access Public
 exports.login = async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // ✅ FIX: explicitly select password
+    if (!email || !password) {
+      return res.status(400).json({ message: 'Email and password are required' });
+    }
+
     const user = await User.findOne({ email }).select('+password');
 
     if (user && (await user.matchPassword(password))) {
@@ -41,16 +62,13 @@ exports.login = async (req, res) => {
           name: user.name,
           email: user.email,
           phone: user.phone,
-        }
+        },
       });
     } else {
       res.status(401).json({ message: 'Invalid email or password' });
     }
   } catch (error) {
+    console.error('Login Error:', error.message);
     res.status(500).json({ message: error.message });
   }
-};
-
-const generateToken = (id) => {
-  return jwt.sign({ id }, process.env.JWT_SECRET, { expiresIn: '30d' });
 };

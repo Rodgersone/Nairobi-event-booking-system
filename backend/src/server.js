@@ -1,38 +1,32 @@
+require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
-const dotenv = require('dotenv');
 const connectDB = require('./config/db');
+const morgan = require('morgan');
 
-// 1. Load env variables FIRST to ensure API keys are available
-dotenv.config();
-
-// 2. Connect to MongoDB
+// Connect to MongoDB
 connectDB();
 
 const app = express();
 
-// 3. Middleware
-app.use(cors());
+// Middleware
+app.use(cors({ origin: 'http://localhost:5173', credentials: true }));
 app.use(express.json());
+app.use(morgan('dev'));
 
-// 4. Route Imports
-const authRoutes = require('./routes/auth.routes');
-const eventRoutes = require('./routes/event.routes');
-const paymentRoutes = require('./routes/payment.routes');
-const bookingRoutes = require('./routes/booking.routes');
+// Routes
+app.use('/api/auth', require('./routes/auth.routes'));
+app.use('/api/events', require('./routes/event.routes'));
+app.use('/api/bookings', require('./routes/booking.routes'));
+app.use('/api/payments', require('./routes/payment.routes'));
 
-// 5. API Route Mounting
-app.use('/api/auth', authRoutes);
-app.use('/api/events', eventRoutes);
-app.use('/api/payments', paymentRoutes); // This now uses protected /stk-push
-app.use('/api/bookings', bookingRoutes);
+// Health Check
+app.get('/', (req, res) => res.json({ message: '🚀 Nairobi Events API is running...' }));
 
-// 6. Root/Health Check route
-app.get('/', (req, res) => {
-  res.status(200).json({ message: 'Nairobi Events API is running...' });
-});
+// Undefined routes
+app.use((req, res) => res.status(404).json({ message: '❌ Route not found' }));
 
-// 7. Global Error Handler (Prevents "next is not a function" crashes)
+// Global error handler
 app.use((err, req, res, next) => {
   const statusCode = res.statusCode === 200 ? 500 : res.statusCode;
   res.status(statusCode).json({
@@ -41,9 +35,12 @@ app.use((err, req, res, next) => {
   });
 });
 
+// Start server
 const PORT = process.env.PORT || 5000;
-
 app.listen(PORT, () => {
   console.log(`🚀 Server running on port ${PORT}`);
-  console.log(`🔗 Payment Callback URL: ${process.env.MPESA_CALLBACK_URL}`);
+  console.log(process.env.MPESA_CALLBACK_URL
+    ? `🔗 Payment Callback URL: ${process.env.MPESA_CALLBACK_URL}`
+    : '⚠️ MPESA_CALLBACK_URL not set'
+  );
 });
